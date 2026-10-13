@@ -25,5 +25,9 @@ Roles are being moved here from the author's own setup a few at a time.
 | [keep-wifi](keep-wifi/README.md) | Wi-Fi brought back by itself: reconnect, driver reload, reboot; power saving off |
 | [wifi-fallback](wifi-fallback/README.md) | Extra Wi-Fi networks for when the usual one is out of reach |
 | [eth-nat-share](eth-nat-share/README.md) | Shares the Wi-Fi with one device on the Ethernet port (DHCP + NAT) |
+| [vnc-server](vnc-server/README.md) | VNC remote desktop (wayvnc or RealVNC) |
+| [rpi-clone](rpi-clone/README.md) | Copy the SD card to another and rename the copy (`clone-dd`, `clone-rename`, rpi-clone) |
+| [boot-splash](boot-splash/README.md) | The boot screen: no rainbow, logos or messages; your picture or a Plymouth theme |
+| [argon-fanhat](argon-fanhat/README.md) | Argon40 Fan HAT fan by CPU temperature |
 
 [base.yml](../base.yml) shows how they fit together in a playbook.

@@ -1,0 +1,31 @@
+---
+# boot-splash defaults
+
+# Hide Raspberry Pi logo (top-left corner)
+splash_hide_logo: false
+
+# Hide boot text messages
+splash_hide_text: false
+
+# Hide blinking cursor
+splash_hide_cursor: false
+
+# Use FKMS instead of KMS (improves Plymouth display stability)
+# FKMS uses firmware for display, reducing "no signal" during boot
+plymouth_use_fkms: false
+
+# Force HDMI hotplug (always output to HDMI)
+plymouth_hdmi_force_hotplug: true
+
+# Custom splash image (path on Ansible controller)
+# If set, replaces /usr/share/plymouth/themes/pix/splash.png
+# splash_image: "files/my-splash.png"
+
+# Plymouth theme name (from plymouth-set-default-theme --list)
+# Common themes: pix, spinner, fade-in, solar, spinfinity
+# Default Raspberry Pi theme is "pix"
+# plymouth_theme: "pix"
+
+# Install custom Plymouth theme from URL (adi1090x pack format)
+# plymouth_theme_url: "https://github.com/adi1090x/plymouth-themes/raw/master/pack_1/angular.tar.gz"
+# plymouth_theme_name: "angular"

@@ -1,0 +1,9 @@
+# Argon Fan HAT Configuration
+# Managed by Ansible - do not edit manually
+#
+# Format: temperature=fanspeed
+# Temperature in Celsius, fan speed as percentage (0-100)
+#
+{% for threshold in argon_fan_thresholds %}
+{{ threshold.temp }}={{ threshold.speed }}
+{% endfor %}

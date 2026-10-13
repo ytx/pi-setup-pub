@@ -1,0 +1,9 @@
+---
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Restart argononed
+  ansible.builtin.systemd:
+    name: argononed
+    state: restarted

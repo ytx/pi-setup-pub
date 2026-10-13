@@ -1,0 +1,80 @@
+---
+- name: Install required packages
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+    name:
+      - python3-libgpiod
+      - python3-smbus
+      - i2c-tools
+    state: present
+
+- name: Enable I2C interface
+  ansible.builtin.command: raspi-config nonint do_i2c 0
+  changed_when: false
+
+- name: Create argon install directory
+  ansible.builtin.file:
+    path: "{{ argon_install_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Download argononed.py
+  ansible.builtin.get_url:
+    url: "{{ argon_download_url }}/argononed.py"
+    dest: "{{ argon_install_dir }}/argononed.py"
+    mode: '0755'
+
+- name: Download argonsysinfo.py
+  ansible.builtin.get_url:
+    url: "{{ argon_download_url }}/argonsysinfo.py"
+    dest: "{{ argon_install_dir }}/argonsysinfo.py"
+    mode: '0755'
+
+- name: Download argonregister.py
+  ansible.builtin.get_url:
+    url: "{{ argon_download_url }}/argonregister.py"
+    dest: "{{ argon_install_dir }}/argonregister.py"
+    mode: '0755'
+
+- name: Download argonpowerbutton-libgpiod.py
+  ansible.builtin.get_url:
+    url: "{{ argon_download_url }}/argonpowerbutton-libgpiod.py"
+    dest: "{{ argon_install_dir }}/argonpowerbutton.py"
+    mode: '0755'
+
+- name: Download argon-shutdown.sh
+  ansible.builtin.get_url:
+    url: "{{ argon_download_url }}/argon-shutdown.sh"
+    dest: "{{ argon_install_dir }}/argon-shutdown.sh"
+    mode: '0755'
+
+- name: Download argonone-fanconfig.sh
+  ansible.builtin.get_url:
+    url: "{{ argon_download_url }}/argonone-fanconfig.sh"
+    dest: /usr/local/bin/argon-config
+    mode: '0755'
+
+- name: Deploy fan configuration
+  ansible.builtin.template:
+    src: argononed.conf.j2
+    dest: /etc/argononed.conf
+    mode: '0644'
+  notify: Restart argononed
+
+- name: Deploy systemd service
+  ansible.builtin.template:
+    src: argononed.service.j2
+    dest: /lib/systemd/system/argononed.service
+    mode: '0644'
+  notify: Reload systemd
+
+- name: Flush handlers to ensure systemd is reloaded
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start argononed service
+  ansible.builtin.systemd:
+    name: argononed
+    enabled: true
+    state: started
+    daemon_reload: true

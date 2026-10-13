@@ -1,0 +1,27 @@
+---
+# rpi-clone: Install rpi-clone SD card cloning tool
+# https://github.com/billw2/rpi-clone
+
+- name: Download rpi-clone
+  ansible.builtin.get_url:
+    url: "{{ rpi_clone_base_url }}/rpi-clone"
+    dest: "{{ rpi_clone_install_dir }}/rpi-clone"
+    mode: '0755'
+
+- name: Download rpi-clone-setup
+  ansible.builtin.get_url:
+    url: "{{ rpi_clone_base_url }}/rpi-clone-setup"
+    dest: "{{ rpi_clone_install_dir }}/rpi-clone-setup"
+    mode: '0755'
+
+- name: Install clone-rename script
+  ansible.builtin.copy:
+    src: clone-rename.sh
+    dest: "{{ rpi_clone_install_dir }}/clone-rename"
+    mode: '0755'
+
+- name: Install clone-dd script
+  ansible.builtin.copy:
+    src: clone-dd.sh
+    dest: "{{ rpi_clone_install_dir }}/clone-dd"
+    mode: '0755'

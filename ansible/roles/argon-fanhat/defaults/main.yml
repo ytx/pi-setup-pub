@@ -1,0 +1,15 @@
+---
+# Argon Fan HAT default variables
+
+# Fan speed thresholds (temperature in Celsius = fan speed percentage)
+# Format: list of {temp: X, speed: Y} pairs
+argon_fan_thresholds:
+  - { temp: 55, speed: 30 }
+  - { temp: 60, speed: 55 }
+  - { temp: 65, speed: 100 }
+
+# Script download base URL
+argon_download_url: "https://download.argon40.com/scripts"
+
+# Installation directory
+argon_install_dir: "/etc/argon"

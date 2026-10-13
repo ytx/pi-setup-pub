@@ -1,0 +1,158 @@
+---
+# boot-splash: Customize Raspberry Pi boot screen
+
+# === Disable GPU firmware splash (rainbow screen) ===
+
+- name: Disable GPU firmware splash in config.txt
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    regexp: '^disable_splash='
+    line: 'disable_splash=1'
+
+# === Ensure DRM loads early for Plymouth ===
+
+- name: Add vc4 module to initramfs
+  ansible.builtin.lineinfile:
+    path: /etc/initramfs-tools/modules
+    line: "vc4"
+    create: true
+  notify: Rebuild initramfs
+
+- name: Blacklist simplefb to prevent conflict with DRM
+  ansible.builtin.copy:
+    dest: /etc/modprobe.d/blacklist-simplefb.conf
+    content: |
+      blacklist simplefb
+      blacklist simpledrm
+    mode: '0644'
+  notify: Rebuild initramfs
+
+# === FKMS for stable Plymouth display ===
+
+- name: Switch to FKMS for Plymouth stability
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    regexp: '^dtoverlay=vc4-kms-v3d'
+    line: 'dtoverlay=vc4-fkms-v3d'
+  when: plymouth_use_fkms | default(false)
+
+- name: Add HDMI force hotplug
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    regexp: '^hdmi_force_hotplug='
+    line: 'hdmi_force_hotplug=1'
+  when: plymouth_hdmi_force_hotplug | default(true)
+
+# === Plymouth configuration ===
+# plymouthd.conf has one section, [Daemon]: plain lineinfile under it, so
+# that nothing beyond ansible-core is needed.
+
+- name: Ensure plymouthd.conf has its [Daemon] section
+  ansible.builtin.lineinfile:
+    path: /etc/plymouth/plymouthd.conf
+    line: "[Daemon]"
+    insertbefore: BOF
+    create: true
+    mode: '0644'
+
+- name: Configure Plymouth daemon
+  ansible.builtin.lineinfile:
+    path: /etc/plymouth/plymouthd.conf
+    regexp: '^\s*{{ item.option }}\s*='
+    line: "{{ item.option }}={{ item.value }}"
+    insertafter: '^\[Daemon\]'
+  loop:
+    - { option: "ShowDelay", value: "0" }
+    - { option: "DeviceTimeout", value: "8" }
+  notify: Rebuild initramfs
+
+# === cmdline.txt modifications ===
+
+- name: Add quiet to cmdline.txt
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/cmdline.txt
+    regexp: '^((?!.*\bquiet\b).*)$'
+    line: '\1 quiet'
+    backrefs: true
+  when: splash_hide_text | default(false)
+
+- name: Add splash to cmdline.txt
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/cmdline.txt
+    regexp: '^((?!.*\bsplash\b).*)$'
+    line: '\1 splash'
+    backrefs: true
+
+- name: Add logo.nologo to cmdline.txt
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/cmdline.txt
+    regexp: '^((?!.*\blogo\.nologo\b).*)$'
+    line: '\1 logo.nologo'
+    backrefs: true
+  when: splash_hide_logo | default(false)
+
+- name: Add vt.global_cursor_default=0 to cmdline.txt
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/cmdline.txt
+    regexp: '^((?!.*\bvt\.global_cursor_default=0\b).*)$'
+    line: '\1 vt.global_cursor_default=0'
+    backrefs: true
+  when: splash_hide_cursor | default(false)
+
+- name: Add loglevel=0 to cmdline.txt
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/cmdline.txt
+    regexp: '^((?!.*\bloglevel=\b).*)$'
+    line: '\1 loglevel=0'
+    backrefs: true
+  when: splash_hide_text | default(false)
+
+# === Custom splash image ===
+
+- name: Copy custom splash image
+  ansible.builtin.copy:
+    src: "{{ splash_image }}"
+    dest: /usr/share/plymouth/themes/pix/splash.png
+    mode: '0644'
+    backup: true
+  when: splash_image is defined
+  notify: Rebuild initramfs
+
+# === Plymouth theme from URL ===
+
+- name: Create temp directory for theme download
+  ansible.builtin.tempfile:
+    state: directory
+  register: theme_temp_dir
+  when: plymouth_theme_url is defined
+
+- name: Download Plymouth theme archive
+  ansible.builtin.get_url:
+    url: "{{ plymouth_theme_url }}"
+    dest: "{{ theme_temp_dir.path }}/theme.tar.gz"
+  when: plymouth_theme_url is defined
+
+- name: Extract Plymouth theme
+  ansible.builtin.unarchive:
+    src: "{{ theme_temp_dir.path }}/theme.tar.gz"
+    dest: /usr/share/plymouth/themes/
+    remote_src: true
+  when: plymouth_theme_url is defined
+  notify: Rebuild initramfs
+
+- name: Clean up temp directory
+  ansible.builtin.file:
+    path: "{{ theme_temp_dir.path }}"
+    state: absent
+  when: plymouth_theme_url is defined
+
+# === Set Plymouth theme in config ===
+
+- name: Set Plymouth theme in plymouthd.conf
+  ansible.builtin.lineinfile:
+    path: /etc/plymouth/plymouthd.conf
+    regexp: '^\s*Theme\s*='
+    line: "Theme={{ plymouth_theme_name | default(plymouth_theme) }}"
+    insertafter: '^\[Daemon\]'
+  when: plymouth_theme is defined or plymouth_theme_name is defined
+  notify: Rebuild initramfs

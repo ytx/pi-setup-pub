@@ -1,0 +1,11 @@
+---
+# vnc-server defaults
+
+# Enable or disable VNC server
+vnc_enabled: true
+
+# VNC server type: "auto", "realvnc", or "wayvnc"
+# - auto: let raspi-config decide (Wayland→wayvnc, X11→realvnc)
+# - realvnc: force RealVNC (for X11 environments like chromium-kiosk2)
+# - wayvnc: force wayvnc (for Wayland environments)
+vnc_server_type: "auto"
