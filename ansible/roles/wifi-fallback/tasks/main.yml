@@ -1,0 +1,43 @@
+---
+- name: Configure fallback WiFi networks
+  when: wifi_fallbacks | length > 0
+  block:
+    - name: Verify NetworkManager is active
+      ansible.builtin.command: systemctl is-active NetworkManager  # noqa: command-instead-of-module (only asks)
+      register: nm_status
+      changed_when: false
+      failed_when: false
+
+    - name: Fail if NetworkManager is not active
+      ansible.builtin.fail:
+        msg: "wifi-fallback role requires NetworkManager"
+      when: nm_status.rc != 0
+
+    - name: Add fallback WiFi connections (idempotent)
+      ansible.builtin.command: >
+        nmcli connection add type wifi
+        con-name "{{ item.ssid }}"
+        ifname {{ wifi_interface }}
+        ssid "{{ item.ssid }}"
+        wifi-sec.key-mgmt wpa-psk
+        wifi-sec.psk "{{ item.psk }}"
+        connection.autoconnect yes
+        connection.autoconnect-priority {{ item.priority | default(-10) }}
+      args:
+        creates: "/etc/NetworkManager/system-connections/{{ item.ssid }}.nmconnection"
+      loop: "{{ wifi_fallbacks }}"
+      loop_control:
+        label: "{{ item.ssid }}"
+      no_log: true
+
+    - name: Update PSK and priority for existing fallback connections
+      ansible.builtin.command: >
+        nmcli connection modify "{{ item.ssid }}"
+        wifi-sec.psk "{{ item.psk }}"
+        connection.autoconnect yes
+        connection.autoconnect-priority {{ item.priority | default(-10) }}
+      loop: "{{ wifi_fallbacks }}"
+      loop_control:
+        label: "{{ item.ssid }}"
+      changed_when: false
+      no_log: true

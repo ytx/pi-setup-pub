@@ -1,0 +1,54 @@
+---
+# NetworkManager's shared mode sets up dnsmasq (DHCP and DNS), IP forwarding
+# and NAT (masquerade) by itself. This only creates the shared connection and
+# leaves activating it to the reboot: the SSH session running the play may be
+# on {{ share_interface }}, so it is not switched over live.
+
+- name: Find existing NM connection currently bound to {{ share_interface }}
+  ansible.builtin.shell: |
+    set -o pipefail
+    nmcli -t -f NAME,DEVICE connection show \
+      | awk -F: -v dev='{{ share_interface }}' '$2 == dev {print $1; exit}'
+  args:
+    executable: /bin/bash
+  register: existing_share_conn
+  changed_when: false
+
+- name: Disable autoconnect on the NM connection already bound to {{ share_interface }}
+  ansible.builtin.command: nmcli connection modify "{{ existing_share_conn.stdout }}" connection.autoconnect no
+  when:
+    - existing_share_conn.stdout | length > 0
+    - existing_share_conn.stdout != share_connection_name
+  changed_when: false
+
+- name: Deploy dnsmasq config for shared connections
+  ansible.builtin.copy:
+    dest: /etc/NetworkManager/dnsmasq-shared.d/eth-nat-share.conf
+    content: |
+      # eth-nat-share: the pool has one address, so hand it out at once even
+      # when an old lease from a device plugged in before is still there
+      dhcp-authoritative
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Create shared connection ({{ share_connection_name }})
+  ansible.builtin.command: >
+    nmcli connection add
+    type ethernet
+    con-name {{ share_connection_name }}
+    ifname {{ share_interface }}
+    ipv4.method shared
+    ipv4.addresses {{ share_ip }}
+    ipv6.method ignore
+    connection.autoconnect yes
+  args:
+    creates: "/etc/NetworkManager/system-connections/{{ share_connection_name }}.nmconnection"
+
+- name: Update shared connection settings (idempotent)
+  ansible.builtin.command: >
+    nmcli connection modify {{ share_connection_name }}
+    ipv4.method shared
+    ipv4.addresses {{ share_ip }}
+    ipv6.method ignore
+  changed_when: false

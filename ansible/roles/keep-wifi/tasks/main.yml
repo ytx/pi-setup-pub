@@ -1,0 +1,61 @@
+---
+- name: Configure WiFi power save
+  when: keep_wifi_disable_powersave | bool
+  block:
+    - name: Check network management system
+      ansible.builtin.command: systemctl is-active NetworkManager  # noqa: command-instead-of-module (only asks)
+      register: keep_wifi_nm_status
+      changed_when: false
+      failed_when: false
+
+    - name: Disable WiFi power save via NetworkManager
+      ansible.builtin.template:
+        src: wifi-powersave.conf.j2
+        dest: /etc/NetworkManager/conf.d/10-wifi-powersave.conf
+        mode: '0644'
+      when: keep_wifi_nm_status.rc == 0
+      notify: Reload NetworkManager
+      # Note: the device is not reactivated here, to avoid dropping the SSH
+      # session. Power save is applied on the next connection activation,
+      # which the reboot at the end of the playbook provides.
+
+    - name: Warn when NetworkManager is not in use
+      ansible.builtin.debug:
+        msg: >-
+          NetworkManager is not active - WiFi power save left untouched.
+          Disable it by other means on this host, or set
+          keep_wifi_disable_powersave: false to silence this.
+      when: keep_wifi_nm_status.rc != 0
+
+- name: Create state directory
+  ansible.builtin.file:
+    path: /var/lib/keep-wifi
+    state: directory
+    mode: '0755'
+
+- name: Deploy keep-wifi script
+  ansible.builtin.template:
+    src: keep-wifi.sh.j2
+    dest: /usr/local/bin/keep-wifi.sh
+    mode: '0755'
+
+- name: Deploy keep-wifi service
+  ansible.builtin.template:
+    src: keep-wifi.service.j2
+    dest: /etc/systemd/system/keep-wifi.service
+    mode: '0644'
+  notify: Reload systemd
+
+- name: Deploy keep-wifi timer
+  ansible.builtin.template:
+    src: keep-wifi.timer.j2
+    dest: /etc/systemd/system/keep-wifi.timer
+    mode: '0644'
+  notify: Reload systemd
+
+- name: Enable and start keep-wifi timer
+  ansible.builtin.systemd:
+    name: keep-wifi.timer
+    enabled: true
+    state: started
+    daemon_reload: true

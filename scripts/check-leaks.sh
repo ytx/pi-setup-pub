@@ -8,7 +8,8 @@
 # Two kinds of checks:
 # - generic, in this file: vault data, private keys, AWS key ids, passwords
 #   in URLs, literal passwords/tokens, private IPv4 addresses other than the
-#   example range 192.168.1.0/24
+#   example range 192.168.1.0/24 and 10.42.0.0/24 (NetworkManager's shared
+#   mode default, the eth-nat-share example)
 # - private, from a file that is NOT in this repository (it would itself
 #   publish what it lists): one extended regex per line, # for comments.
 #   $PI_SETUP_LEAK_PATTERNS, else ../pi-setup/pub-leak-patterns.txt. The
@@ -56,6 +57,9 @@ content() {
   if [ "$mode" = --staged ]; then git show ":$1" 2>/dev/null; else cat -- "$1"; fi
 }
 
+# Addresses that are not anyone's site: blanked before the patterns are tried
+allowed='s/(^|[^0-9.])10\.42\.0\.[0-9]{1,3}/\1x/g'
+
 found=0
 report() {   # name file lines...
   local name=$1 file=$2
@@ -74,7 +78,7 @@ while IFS= read -r f; do
   for entry in "${generic[@]}" "${private[@]}"; do
     name=${entry%%|*}
     re=${entry#*|}
-    lines=$(content "$f" | grep -nEi -- "$re" | grep -v 'leak-ok' | cut -d: -f1 | tr '\n' ' ')
+    lines=$(content "$f" | sed -E "$allowed" | grep -nEi -- "$re" | grep -v 'leak-ok' | cut -d: -f1 | tr '\n' ' ')
     [ -n "$lines" ] && report "$name" "$f" $lines
   done
 done <<< "$files"

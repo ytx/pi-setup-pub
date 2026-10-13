@@ -1,0 +1,35 @@
+---
+# keep-wifi defaults
+
+# Ping interval (seconds)
+keep_wifi_interval: 60
+
+# Number of consecutive failures before action
+keep_wifi_max_fails: 3
+
+# Sleep time after driver reload (seconds)
+keep_wifi_reload_sleep: 10
+
+# Disable WiFi power save. brcmfmac enables it by default, which makes the Pi
+# miss multicast buffered at the AP (mDNS name resolution) and adds latency
+# spikes. Applied as a NetworkManager global default so it survives netplan
+# regenerating the connection profile.
+keep_wifi_disable_powersave: true
+
+# WiFi interface used for the NetworkManager reconnect stage.
+# Empty means auto-detect (first nmcli device of type wifi).
+keep_wifi_interface: ""
+
+# Sleep time after the NetworkManager reconnect stage (seconds)
+keep_wifi_reconnect_sleep: 15
+
+# Persist an event log to the boot partition so incidents survive a reboot
+# (overlayFS keeps the journal on tmpfs). Written only on incident boundaries,
+# never on a normal OK check, to keep SD card writes to a minimum.
+keep_wifi_persist_log: true
+
+# Event log path (must be on a partition that survives reboot)
+keep_wifi_log_path: /boot/firmware/keep-wifi.log
+
+# Trim the log to the newest half once it grows past this size (bytes)
+keep_wifi_log_max_bytes: 65536

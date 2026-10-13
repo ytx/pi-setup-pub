@@ -1,0 +1,7 @@
+---
+# The interface whose address is fixed
+network_interface: wlan0
+# Set these for your network, usually once for all hosts in
+# inventory/group_vars/all.yml. Required when static_ip is set.
+gateway: ""
+dns_servers: []

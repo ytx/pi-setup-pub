@@ -1,0 +1,152 @@
+#!/bin/bash
+# Keep WiFi connection alive
+# Managed by Ansible - do not edit manually
+
+STATE_FILE="/var/lib/keep-wifi/state"
+MAX_FAILS={{ keep_wifi_max_fails }}
+RELOAD_SLEEP={{ keep_wifi_reload_sleep }}
+RECONNECT_SLEEP={{ keep_wifi_reconnect_sleep }}
+WIFI_IFACE="{{ keep_wifi_interface }}"
+{% if keep_wifi_persist_log %}
+LOG_FILE="{{ keep_wifi_log_path }}"
+LOG_MAX_BYTES={{ keep_wifi_log_max_bytes }}
+{% else %}
+LOG_FILE=""
+LOG_MAX_BYTES=0
+{% endif %}
+
+# Recovery stages, escalated one step per MAX_FAILS consecutive failures
+STAGE_RECONNECT=0
+STAGE_RELOAD=1
+STAGE_REBOOT=2
+
+# Ensure state directory exists
+mkdir -p /var/lib/keep-wifi
+
+# Uptime in whole seconds. Used instead of wall clock for durations: the clock
+# starts stale on every boot (the timesync clock file sits in the read-only
+# overlay layer) and jumps forward once NTP syncs.
+now_up() {
+    cut -d. -f1 /proc/uptime 2>/dev/null || echo 0
+}
+
+# Append one line to the persistent event log.
+# Called only on incident boundaries - down, recovery action, recovered - so a
+# typical incident costs 2-3 SD writes and a quiet system costs none.
+log_event() {
+    [ -n "$LOG_FILE" ] || return 0
+
+    local line
+    line="$(date -Is 2>/dev/null) up=$(now_up)s $*"
+
+    if ! { echo "$line" >> "$LOG_FILE"; } 2>/dev/null; then
+        # Boot partition may be mounted read-only under overlayFS
+        local mp
+        mp=$(findmnt -no TARGET -T "$LOG_FILE" 2>/dev/null)
+        [ -n "$mp" ] && mount -o remount,rw "$mp" 2>/dev/null
+        echo "$line" >> "$LOG_FILE" 2>/dev/null || return 0
+    fi
+
+    # Trim to the newest half once the log grows past the cap
+    local size
+    size=$(stat -c %s "$LOG_FILE" 2>/dev/null || echo 0)
+    if [ "$size" -gt "$LOG_MAX_BYTES" ]; then
+        if tail -c $((LOG_MAX_BYTES / 2)) "$LOG_FILE" > /var/lib/keep-wifi/log.trim 2>/dev/null; then
+            cat /var/lib/keep-wifi/log.trim > "$LOG_FILE" 2>/dev/null
+        fi
+        rm -f /var/lib/keep-wifi/log.trim
+    fi
+
+    sync -f "$LOG_FILE" 2>/dev/null || sync
+}
+
+# Resolve the WiFi interface for the reconnect stage
+wifi_iface() {
+    if [ -n "$WIFI_IFACE" ]; then
+        echo "$WIFI_IFACE"
+        return 0
+    fi
+    nmcli -t -f DEVICE,TYPE device 2>/dev/null \
+        | awk -F: '$2 == "wifi" { print $1; exit }'
+}
+
+# Read state (fail_count stage incident_start)
+FAIL_COUNT=0
+STAGE=$STAGE_RECONNECT
+INCIDENT_START=0
+if [ -f "$STATE_FILE" ]; then
+    read FAIL_COUNT STAGE INCIDENT_START < "$STATE_FILE" 2>/dev/null || true
+fi
+[ -n "$FAIL_COUNT" ] || FAIL_COUNT=0
+[ -n "$STAGE" ] || STAGE=$STAGE_RECONNECT
+[ -n "$INCIDENT_START" ] || INCIDENT_START=0
+
+# Check connectivity. A missing default route is a failure, not a reason to
+# skip: it is exactly what a dropped WiFi association looks like, and skipping
+# there meant the recovery ladder could never be reached.
+GATEWAY=$(ip route | grep default | awk '{print $3}' | head -1)
+
+if [ -z "$GATEWAY" ]; then
+    FAILED=1
+    REASON="no default route"
+elif ping -c 1 -W 5 "$GATEWAY" > /dev/null 2>&1; then
+    FAILED=0
+else
+    FAILED=1
+    REASON="gateway=$GATEWAY unreachable"
+fi
+
+if [ "$FAILED" -eq 0 ]; then
+    echo "OK: $GATEWAY reachable"
+    if [ "$INCIDENT_START" -ne 0 ]; then
+        log_event "UP     gateway=$GATEWAY recovered after $(( $(now_up) - INCIDENT_START ))s"
+    fi
+    echo "0 $STAGE_RECONNECT 0" > "$STATE_FILE"
+    exit 0
+fi
+
+FAIL_COUNT=$((FAIL_COUNT + 1))
+echo "FAIL: $REASON (count=$FAIL_COUNT, stage=$STAGE)"
+
+if [ "$INCIDENT_START" -eq 0 ]; then
+    INCIDENT_START=$(now_up)
+    log_event "DOWN   $REASON"
+fi
+
+if [ "$FAIL_COUNT" -lt "$MAX_FAILS" ]; then
+    echo "$FAIL_COUNT $STAGE $INCIDENT_START" > "$STATE_FILE"
+    exit 0
+fi
+
+# Threshold reached - run this stage's recovery action, then escalate
+IFACE=$(wifi_iface)
+
+if [ "$STAGE" -le "$STAGE_RECONNECT" ] && [ -n "$IFACE" ] && command -v nmcli > /dev/null 2>&1; then
+    echo "Reconnecting $IFACE via NetworkManager..."
+    log_event "ACTION nmcli reconnect $IFACE after $FAIL_COUNT consecutive failures"
+    nmcli device disconnect "$IFACE" > /dev/null 2>&1 || true
+    nmcli device connect "$IFACE" > /dev/null 2>&1 || true
+    echo "Waiting ${RECONNECT_SLEEP}s for WiFi to reconnect..."
+    sleep "$RECONNECT_SLEEP"
+    echo "0 $STAGE_RELOAD $INCIDENT_START" > "$STATE_FILE"
+
+elif [ "$STAGE" -le "$STAGE_RELOAD" ]; then
+    # Reload WiFi driver
+    echo "Reloading WiFi driver..."
+    log_event "ACTION driver reload after $FAIL_COUNT consecutive failures"
+    rmmod brcmfmac_wcc 2>/dev/null || true
+    rmmod brcmfmac 2>/dev/null || true
+    sleep 2
+    modprobe brcmfmac
+    echo "Waiting ${RELOAD_SLEEP}s for WiFi to reconnect..."
+    sleep "$RELOAD_SLEEP"
+    echo "0 $STAGE_REBOOT $INCIDENT_START" > "$STATE_FILE"
+
+else
+    # Reboot system
+    echo "WiFi still unreachable after reconnect and driver reload, rebooting..."
+    log_event "ACTION reboot - still unreachable after reconnect and driver reload"
+    echo "0 $STAGE_RECONNECT 0" > "$STATE_FILE"
+    sync
+    reboot
+fi

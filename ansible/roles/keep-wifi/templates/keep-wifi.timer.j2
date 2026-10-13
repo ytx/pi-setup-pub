@@ -1,0 +1,9 @@
+[Unit]
+Description=Run keep-wifi check periodically
+
+[Timer]
+OnBootSec={{ keep_wifi_interval }}
+OnUnitActiveSec={{ keep_wifi_interval }}
+
+[Install]
+WantedBy=timers.target

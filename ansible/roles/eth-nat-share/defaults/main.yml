@@ -1,0 +1,13 @@
+---
+# The interface shared to the device plugged into it (downstream)
+share_interface: eth0
+
+# NetworkManager connection name
+share_connection_name: "{{ share_interface }}-shared"
+
+# This host's address on it (CIDR). A /30 leaves exactly one address to hand
+# out, so whatever is plugged in always gets the same one, whatever its MAC:
+#   10.42.0.1/30 -> this host .1, the device .2
+# 10.42.0.0/24 is what NetworkManager's shared mode uses by default. Pick a
+# subnet your LAN does not use.
+share_ip: "10.42.0.1/30"

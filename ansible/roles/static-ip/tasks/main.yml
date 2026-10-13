@@ -1,0 +1,48 @@
+---
+- name: Configure static IP
+  when: static_ip is defined
+  block:
+    - name: Check that the gateway is set
+      ansible.builtin.assert:
+        that:
+          - gateway | length > 0
+        fail_msg: static_ip needs gateway (and dns_servers), usually in inventory/group_vars/all.yml
+
+    - name: Check network management system
+      ansible.builtin.command: systemctl is-active NetworkManager  # noqa: command-instead-of-module (only asks)
+      register: nm_status
+      changed_when: false
+      failed_when: false
+
+    - name: Get active NetworkManager connection name
+      ansible.builtin.shell: |
+        set -o pipefail
+        nmcli -t -f NAME,DEVICE connection show --active \
+          | awk -F: -v dev='{{ network_interface }}' '$2 == dev {print $1; exit}'
+      args:
+        executable: /bin/bash
+      register: nm_connection_name
+      changed_when: false
+      when: nm_status.rc == 0
+
+    - name: Configure static IP for NetworkManager
+      ansible.builtin.command: >-
+        nmcli connection modify "{{ nm_connection_name.stdout }}" ipv4.method manual
+        ipv4.addresses {{ static_ip }}/24
+        ipv4.gateway {{ gateway }}
+        ipv4.dns "{{ dns_servers | join(',') }}"
+      when: nm_status.rc == 0 and nm_connection_name.stdout != ""
+      # Note: connection up is not called to avoid SSH disconnection
+      # Changes will be applied after reboot
+
+    - name: Configure static IP for dhcpcd (fallback)
+      ansible.builtin.blockinfile:
+        path: /etc/dhcpcd.conf
+        block: |
+          interface {{ network_interface }}
+          static ip_address={{ static_ip }}/24
+          static routers={{ gateway }}
+          static domain_name_servers={{ dns_servers | join(' ') }}
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - Static IP"
+        create: true
+      when: nm_status.rc != 0

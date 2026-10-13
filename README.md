@@ -141,7 +141,8 @@ git config core.hooksPath .githooks      # once per clone
 The pre-commit hook runs `scripts/check-leaks.sh`, which refuses a commit that
 contains vault data, private keys, AWS key ids, passwords in URLs, literal
 passwords or tokens, or private IPv4 addresses outside the example range
-`192.168.1.0/24`. Use `example.com` and `192.168.1.x` in examples.
+`192.168.1.0/24` (and `10.42.0.0/24`, NetworkManager's default for sharing a
+connection). Use `example.com` and `192.168.1.x` in examples.
 
 It also reads a list of your own patterns (your domains, SSIDs, networks) from
 a file that is not in this repository - by default

@@ -21,5 +21,9 @@ Roles are being moved here from the author's own setup a few at a time.
 | [disable-cloud-init](disable-cloud-init/README.md) | cloud-init off after the first boot |
 | [clear-wifi](clear-wifi/README.md) | Forgets every Wi-Fi network |
 | [rtc](rtc/README.md) | Time from an I2C real-time clock (DS3231, ...) |
+| [static-ip](static-ip/README.md) | A fixed IPv4 address (NetworkManager or dhcpcd) |
+| [keep-wifi](keep-wifi/README.md) | Wi-Fi brought back by itself: reconnect, driver reload, reboot; power saving off |
+| [wifi-fallback](wifi-fallback/README.md) | Extra Wi-Fi networks for when the usual one is out of reach |
+| [eth-nat-share](eth-nat-share/README.md) | Shares the Wi-Fi with one device on the Ethernet port (DHCP + NAT) |
 
 [base.yml](../base.yml) shows how they fit together in a playbook.

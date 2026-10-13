@@ -1,0 +1,17 @@
+---
+# wifi-fallback defaults
+
+# List of fallback WiFi networks. Define in inventory.yml.
+# Each entry: ssid, psk, priority (optional; default -10, lower than home AP at 0)
+#
+# Example:
+#   wifi_fallbacks:
+#     - ssid: "MobileRouter-XXX"
+#       psk: "secretpassword"
+#     - ssid: "Cafe-WiFi"
+#       psk: "cafepass"
+#       priority: -20
+wifi_fallbacks: []
+
+# Network interface for fallback connections
+wifi_interface: wlan0

@@ -135,7 +135,7 @@ git config core.hooksPath .githooks      # clone ごとに 1 回
 コミットの前に `scripts/check-leaks.sh` が動き、次のものが入っているとコミットを
 止めます。vault のデータ、秘密鍵、AWS のアクセスキー ID、URL の中のパスワード、
 そのまま書いたパスワードやトークン、例に使う `192.168.1.0/24` 以外のプライベート
-IPv4 アドレス。例には `example.com` と `192.168.1.x` を使ってください。
+IPv4 アドレス（`10.42.0.0/24` は NetworkManager が接続の共有に使う既定値なので許します）。例には `example.com` と `192.168.1.x` を使ってください。
 
 さらに、自分のドメイン・SSID・ネットワークなどのパターンを、このリポジトリに
 **入れない**ファイルから読みます（既定は `../pi-setup/pub-leak-patterns.txt`、または
