@@ -1,0 +1,15 @@
+---
+# locales defaults
+
+# Install every locale from one package rather than generating them one by one.
+# Costs ~231MB on disk, and in exchange any SSH client's locale just works -
+# no editing locale.gen again the next time a new one turns up.
+locales_install_all: true
+
+# Locales generated when locales_install_all is false. Written as they appear
+# in /etc/locale.gen.
+locales_generate:
+  - "en_US.UTF-8 UTF-8"
+
+# System default written to /etc/default/locale. Empty leaves it alone.
+locales_default: ""

@@ -1,0 +1,6 @@
+---
+- name: Reload systemd
+  # The name it had before; other roles notify it by that
+  listen: reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true

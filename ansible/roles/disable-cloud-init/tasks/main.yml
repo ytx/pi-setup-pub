@@ -1,0 +1,8 @@
+---
+# disable-cloud-init: Disable all cloud-init services
+- name: Disable cloud-init
+  ansible.builtin.file:
+    path: /etc/cloud/cloud-init.disabled
+    state: touch
+    modification_time: preserve
+    access_time: preserve

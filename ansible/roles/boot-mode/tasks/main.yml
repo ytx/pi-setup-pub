@@ -1,0 +1,118 @@
+---
+# boot-mode: boot target (GUI/CUI) and automatic login
+#
+# Split out of the kiosk roles, which each carried their own copy of this.
+
+- name: Validate boot-mode settings
+  ansible.builtin.assert:
+    that:
+      - boot_mode in ['cui', 'gui']
+      - not (boot_autologin | bool and boot_mode == 'cui' and not (boot_getty_enabled | bool))
+    fail_msg: >-
+      boot_mode must be "cui" or "gui", and CUI autologin needs
+      boot_getty_enabled: true (agetty is what logs the user in)
+
+- name: Check current default target
+  ansible.builtin.command: systemctl get-default
+  register: boot_mode_current
+  changed_when: false
+  # Read-only, and the next task's condition depends on it, so it has to run
+  # in check mode too.
+  check_mode: false
+
+- name: Set the default boot target
+  ansible.builtin.command: systemctl set-default {{ 'graphical.target' if boot_mode == 'gui' else 'multi-user.target' }}
+  when: boot_mode_current.stdout != ('graphical.target' if boot_mode == 'gui' else 'multi-user.target')
+
+# ============================================
+# CUI
+# ============================================
+- name: Configure console boot
+  when: boot_mode == 'cui'
+  block:
+    # Not just "not started": a desktop image re-enables it on upgrade.
+    - name: Stop and disable the display manager
+      ansible.builtin.systemd:
+        name: "{{ boot_display_manager }}"
+        enabled: false
+        state: stopped
+      failed_when: false
+
+    - name: Create getty@tty1 override directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/getty@tty1.service.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      when: boot_autologin | bool
+
+    - name: Deploy getty autologin configuration
+      ansible.builtin.template:
+        src: getty-autologin.conf.j2
+        dest: /etc/systemd/system/getty@tty1.service.d/autologin.conf
+        owner: root
+        group: root
+        mode: '0644'
+      when: boot_autologin | bool
+      notify: Reload systemd
+
+    - name: Remove getty autologin configuration
+      ansible.builtin.file:
+        path: /etc/systemd/system/getty@tty1.service.d/autologin.conf
+        state: absent
+      when: not (boot_autologin | bool)
+      notify: Reload systemd
+
+# ============================================
+# GUI
+# ============================================
+- name: Configure desktop boot
+  when: boot_mode == 'gui'
+  block:
+    - name: Enable the display manager
+      ansible.builtin.systemd:
+        name: "{{ boot_display_manager }}"
+        enabled: true
+      failed_when: false
+
+    - name: Create display manager conf.d directory
+      ansible.builtin.file:
+        path: "/etc/{{ boot_display_manager }}/{{ boot_display_manager }}.conf.d"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      when: boot_autologin | bool
+
+    - name: Deploy display manager autologin configuration
+      ansible.builtin.template:
+        src: lightdm-autologin.conf.j2
+        dest: "/etc/{{ boot_display_manager }}/{{ boot_display_manager }}.conf.d/10-autologin.conf"
+        owner: root
+        group: root
+        mode: '0644'
+      when: boot_autologin | bool
+
+    - name: Remove display manager autologin configuration
+      ansible.builtin.file:
+        path: "/etc/{{ boot_display_manager }}/{{ boot_display_manager }}.conf.d/10-autologin.conf"
+        state: absent
+      when: not (boot_autologin | bool)
+
+# ============================================
+# Console on tty1
+# ============================================
+- name: Enable getty on tty1
+  ansible.builtin.systemd:
+    name: getty@tty1
+    enabled: true
+    state: started
+  when: boot_getty_enabled | bool
+
+- name: Disable getty on tty1
+  ansible.builtin.systemd:
+    name: getty@tty1
+    enabled: false
+    state: stopped
+  when: not (boot_getty_enabled | bool)

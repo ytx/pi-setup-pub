@@ -1,0 +1,4 @@
+---
+# Wi-Fi country code (ISO 3166, e.g. GB, US, JP) written to the emptied
+# wpa_supplicant.conf. Empty leaves the line out.
+clear_wifi_country: ""

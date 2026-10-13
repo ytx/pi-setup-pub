@@ -1,0 +1,9 @@
+---
+- name: Disable and stop specified services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+  loop: "{{ services_to_disable }}"
+  ignore_errors: true
+  when: services_to_disable | length > 0

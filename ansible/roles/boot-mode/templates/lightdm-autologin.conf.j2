@@ -1,0 +1,7 @@
+# Managed by Ansible (boot-mode) - do not edit manually
+#
+# A conf.d drop-in rather than editing lightdm.conf itself, so a package
+# upgrade cannot silently drop the setting.
+[Seat:*]
+autologin-user={{ boot_autologin_user }}
+autologin-user-timeout=0

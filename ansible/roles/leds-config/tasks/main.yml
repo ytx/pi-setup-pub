@@ -1,0 +1,38 @@
+---
+# leds-config: Configure Raspberry Pi ACT/PWR LEDs
+
+- name: Configure ACT LED (enabled)
+  ansible.builtin.blockinfile:
+    path: /boot/firmware/config.txt
+    marker: "# {mark} ANSIBLE MANAGED - ACT LED"
+    block: |
+      dtparam=act_led_trigger={{ act_led_trigger }}
+      dtparam=act_led_activelow={{ act_led_activelow }}
+  when: leds_enabled
+
+- name: Configure PWR LED (enabled)
+  ansible.builtin.blockinfile:
+    path: /boot/firmware/config.txt
+    marker: "# {mark} ANSIBLE MANAGED - PWR LED"
+    block: |
+      dtparam=pwr_led_trigger={{ pwr_led_trigger }}
+      dtparam=pwr_led_activelow={{ pwr_led_activelow }}
+  when: leds_enabled
+
+- name: Configure ACT LED (disabled)
+  ansible.builtin.blockinfile:
+    path: /boot/firmware/config.txt
+    marker: "# {mark} ANSIBLE MANAGED - ACT LED"
+    block: |
+      dtparam=act_led_trigger={{ act_led_off_trigger }}
+      dtparam=act_led_activelow={{ act_led_off_activelow }}
+  when: not leds_enabled
+
+- name: Configure PWR LED (disabled)
+  ansible.builtin.blockinfile:
+    path: /boot/firmware/config.txt
+    marker: "# {mark} ANSIBLE MANAGED - PWR LED"
+    block: |
+      dtparam=pwr_led_trigger={{ pwr_led_off_trigger }}
+      dtparam=pwr_led_activelow={{ pwr_led_off_activelow }}
+  when: not leds_enabled

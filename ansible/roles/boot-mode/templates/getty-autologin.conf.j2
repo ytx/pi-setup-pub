@@ -1,0 +1,4 @@
+# Managed by Ansible (boot-mode) - do not edit manually
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin {{ boot_autologin_user }} --noclear %I $TERM

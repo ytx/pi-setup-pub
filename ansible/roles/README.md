@@ -14,5 +14,12 @@ Roles are being moved here from the author's own setup a few at a time.
 | [apt-upgrade](apt-upgrade/README.md) | `apt update` and `apt dist-upgrade` |
 | [watchdog](watchdog/README.md) | The hardware watchdog restarts a hung Pi |
 | [config-persistence](config-persistence/README.md) | Keeps chosen files across reboots on an overlay device (`/boot/firmware/config`) |
+| [boot-mode](boot-mode/README.md) | Desktop or console boot, and automatic login |
+| [locales](locales/README.md) | The locales SSH clients send (no `setlocale` warnings, no fall-back to C) |
+| [leds-config](leds-config/README.md) | What the ACT and PWR LEDs show, or both off |
+| [disable-services](disable-services/README.md) | Stops and disables the services you list |
+| [disable-cloud-init](disable-cloud-init/README.md) | cloud-init off after the first boot |
+| [clear-wifi](clear-wifi/README.md) | Forgets every Wi-Fi network |
+| [rtc](rtc/README.md) | Time from an I2C real-time clock (DS3231, ...) |
 
 [base.yml](../base.yml) shows how they fit together in a playbook.

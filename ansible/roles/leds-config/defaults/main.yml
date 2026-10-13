@@ -1,0 +1,25 @@
+---
+# leds-config defaults
+
+# ACT LED (green, activity LED)
+# trigger: none, mmc0, heartbeat, timer, default-on
+act_led_trigger: "mmc0"
+act_led_activelow: "on"
+
+# PWR LED (red, power LED)
+# trigger: none, default-on, heartbeat, timer
+pwr_led_trigger: "default-on"
+pwr_led_activelow: "on"
+
+# Shortcut: set to false to turn off all LEDs
+leds_enabled: true
+
+# Values written when leds_enabled is false (LED OFF).
+# NOTE: the PWR (red) LED is active-low on some models (e.g. Pi 3B+, which drives
+# the LEDs via a GPIO expander). On the 3B+, trigger=none/activelow=off leaves the
+# red PWR LED lit; trigger=off + activelow=on extinguishes it. Override per host if
+# a different model needs different polarity.
+act_led_off_trigger: "none"
+act_led_off_activelow: "off"
+pwr_led_off_trigger: "off"
+pwr_led_off_activelow: "on"

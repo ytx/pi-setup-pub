@@ -1,0 +1,30 @@
+---
+# rtc: DS3231 RTC over I2C
+# The kernel handles RTC sync automatically via dtoverlay=i2c-rtc
+# Gracefully ignored if RTC hardware is not present
+
+# ============================================
+# Enable I2C
+# ============================================
+- name: Enable I2C interface
+  ansible.builtin.command: raspi-config nonint do_i2c 0
+  changed_when: false
+
+# ============================================
+# Add dtoverlay for RTC
+# ============================================
+- name: Check if RTC dtoverlay exists in config.txt
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    regexp: '^dtoverlay=i2c-rtc,{{ rtc_chip }}'
+    state: absent
+  check_mode: true
+  register: rtc_overlay_check
+  changed_when: false
+
+- name: Add RTC dtoverlay to config.txt
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    line: "dtoverlay=i2c-rtc,{{ rtc_chip }}"
+    insertafter: EOF
+  when: rtc_overlay_check.found == 0

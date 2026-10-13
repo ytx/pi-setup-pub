@@ -1,0 +1,46 @@
+---
+# locales: make sure the locales clients ask for actually exist
+#
+# sshd accepts LANG and LC_* from the client (AcceptEnv). When the client
+# sends one the host does not have - macOS defaults to en_US.UTF-8, these
+# images ship only en_GB.UTF-8 - bash warns on every login and the session
+# falls back to the non-UTF-8 C locale, so anything with Japanese in its name
+# stops displaying correctly.
+#
+# MUST be applied through a playbook, not by hand on the host: /usr and /etc
+# are on the overlay, whose upper layer is a ~450MB tmpfs. Installing 231MB
+# there would eat a quarter of a Pi 3B's RAM and vanish at the next reboot.
+# A playbook run has overlay-disable in front of it, so the files land on the
+# real filesystem.
+
+- name: Install all locales
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+    name: locales-all
+    state: present
+  when: locales_install_all | bool
+
+- name: Generate selected locales
+  when: not (locales_install_all | bool)
+  block:
+    - name: Install the locales package
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+        name: locales
+        state: present
+
+    - name: Enable the requested locales in locale.gen
+      ansible.builtin.lineinfile:
+        path: /etc/locale.gen
+        regexp: '^#?\s*{{ item | regex_escape }}$'
+        line: "{{ item }}"
+        state: present
+      loop: "{{ locales_generate }}"
+      notify: Regenerate locales
+
+- name: Set the system default locale
+  ansible.builtin.command: update-locale LANG={{ locales_default }}
+  when: locales_default | length > 0
+  changed_when: false

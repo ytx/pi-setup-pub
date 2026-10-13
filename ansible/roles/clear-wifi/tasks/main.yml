@@ -1,0 +1,48 @@
+---
+# clear-wifi: Remove all WiFi connection profiles
+
+# ============================================
+# NetworkManager WiFi connections
+# ============================================
+- name: Get WiFi connection UUIDs from NetworkManager
+  ansible.builtin.shell: |
+    set -o pipefail
+    nmcli -t -f UUID,TYPE connection show | grep ':802-11-wireless$' | cut -d: -f1
+  args:
+    executable: /bin/bash
+  register: wifi_uuids
+  changed_when: false
+  failed_when: false
+
+- name: Delete WiFi connections from NetworkManager
+  ansible.builtin.command: nmcli connection delete uuid {{ item }}
+  loop: "{{ wifi_uuids.stdout_lines }}"
+  when: wifi_uuids.stdout_lines | length > 0
+
+# ============================================
+# wpa_supplicant (legacy)
+# ============================================
+- name: Check for wpa_supplicant.conf
+  ansible.builtin.stat:
+    path: /etc/wpa_supplicant/wpa_supplicant.conf
+  register: wpa_conf
+
+- name: Remove network blocks from wpa_supplicant.conf
+  ansible.builtin.copy:
+    content: |
+      ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+      update_config=1
+      {% if clear_wifi_country %}
+      country={{ clear_wifi_country }}
+      {% endif %}
+    dest: /etc/wpa_supplicant/wpa_supplicant.conf
+    mode: '0600'
+  when: wpa_conf.stat.exists
+
+# ============================================
+# cloud-init network config
+# ============================================
+- name: Remove cloud-init network-config
+  ansible.builtin.file:
+    path: /boot/firmware/network-config
+    state: absent

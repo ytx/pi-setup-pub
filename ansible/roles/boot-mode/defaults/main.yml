@@ -1,0 +1,21 @@
+---
+# boot-mode defaults
+
+# Boot target: "cui" (multi-user.target) or "gui" (graphical.target).
+# In cui mode the display manager is stopped and disabled as well, so a
+# desktop image never brings X up behind the running application.
+boot_mode: cui
+
+# Log a user in automatically on boot.
+#   cui: getty@tty1 drop-in running agetty --autologin
+#   gui: display manager autologin
+boot_autologin: false
+boot_autologin_user: pi
+
+# Keep a console login on tty1. Set false only when something else owns the
+# VT (mpv on DRM, a GStreamer pipeline with kmssink, ...), since disabling it
+# removes the local way back into the machine.
+boot_getty_enabled: true
+
+# Display manager driven in gui mode
+boot_display_manager: lightdm
