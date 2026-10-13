@@ -1,0 +1,19 @@
+---
+- name: Enable hardware watchdog in boot config
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    line: 'dtparam=watchdog=on'
+    create: false
+
+- name: Configure systemd RuntimeWatchdog
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/system.conf
+    regexp: '^#?RuntimeWatchdogSec='
+    line: 'RuntimeWatchdogSec={{ watchdog_timeout }}'
+
+- name: Disable userspace watchdog service (use systemd watchdog instead)
+  ansible.builtin.systemd:
+    name: watchdog
+    enabled: false
+    state: stopped
+  ignore_errors: true

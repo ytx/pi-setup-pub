@@ -1,0 +1,91 @@
+---
+# raspi-config only edits the kernel cmdline, but the overlayroot package also
+# honours /etc/overlayroot.conf, and conf wins. A host whose conf says
+# overlayroot="tmpfs" therefore keeps booting into an overlay while
+# get_overlay_now reports it as disabled, and everything the play writes -
+# including overlay-enable's task that resets that very file - goes to tmpfs
+# and is gone at the next reboot. A host whose conf was set that way (by
+# hand, or by an early version of overlay-enable) is stuck like this and
+# cannot free itself from inside the overlay.
+#
+# Breaking out means writing to the filesystem *underneath* the overlay.
+- name: Find the filesystem underneath the overlay
+  ansible.builtin.shell: |
+    set -o pipefail
+    findmnt -n -o OPTIONS / | tr ',' '\n' | sed -n 's/^lowerdir=//p' | head -1
+  args:
+    executable: /bin/bash
+  register: overlay_lower
+  changed_when: false
+  failed_when: false
+
+- name: Read overlayroot.conf from the underlying filesystem
+  ansible.builtin.command: "grep -hE '^[[:space:]]*overlayroot=' {{ overlay_lower.stdout }}/etc/overlayroot.conf"
+  register: overlay_lower_conf
+  changed_when: false
+  failed_when: false
+  when: overlay_lower.stdout | length > 0
+
+# Only touches a host that is actually stuck: mounted on an overlay whose
+# underlying conf forces it. Where conf is already empty - every host set up
+# by the current overlay-enable - this is skipped and nothing is remounted.
+- name: Stop the underlying filesystem from forcing the overlay
+  when:
+    - overlay_lower.stdout | length > 0
+    - overlay_lower_conf.stdout | default('') is search('overlayroot="?[^"\s]')
+  block:
+    # ansible.posix.mount is not in ansible-core, and this is the overlay's
+    # lower layer, not an fstab entry
+    - name: Remount the underlying filesystem read-write
+      ansible.builtin.command: "mount -o remount,rw {{ overlay_lower.stdout }}"  # noqa: command-instead-of-module
+
+    - name: Reset overlayroot to empty there (cmdline-only control)
+      ansible.builtin.lineinfile:
+        path: "{{ overlay_lower.stdout }}/etc/overlayroot.conf"
+        regexp: '^\s*overlayroot=.*'
+        line: 'overlayroot=""'
+      notify: Reboot after overlay disable
+  always:
+    # Back to read-only whatever happened above: this is the live root's
+    # lower layer, and leaving it writable invites a half-written file.
+    - name: Remount the underlying filesystem read-only
+      ansible.builtin.command: "mount -o remount,ro {{ overlay_lower.stdout }}"  # noqa: command-instead-of-module
+      failed_when: false
+      changed_when: false
+
+- name: Check current overlay file system status
+  ansible.builtin.command: raspi-config nonint get_overlay_now
+  register: overlay_status
+  changed_when: false
+
+- name: Disable overlay temporarily if enabled (for modifications)
+  ansible.builtin.command: raspi-config nonint do_overlayfs 1
+  when: overlay_status.stdout == "0"
+  notify: Reboot after overlay disable
+
+- name: Flush handlers to reboot immediately if overlay was disabled
+  ansible.builtin.meta: flush_handlers
+
+# Self-heal: a device wrongly left with systemd-remount-fs masked would boot with
+# / read-only. Overlay is OFF here (real ext4), so unmasking persists to disk and
+# restores normal ro->rw remount on subsequent non-overlay boots. (The overlay
+# failure is handled by a condition drop-in in overlay-enable, not by masking.)
+- name: Ensure systemd-remount-fs is not masked (overlay disabled)
+  ansible.builtin.systemd:
+    name: systemd-remount-fs.service
+    masked: false
+
+# Re-enable swap after reboot (overlay-enable disables swap permanently,
+# so subsequent runs boot without swap and heavy tasks may cause OOM)
+- name: Start zram setup service
+  ansible.builtin.systemd:
+    name: systemd-zram-setup@zram0.service
+    state: started
+  failed_when: false
+  changed_when: false
+
+- name: Activate zram swap
+  ansible.builtin.command: swapon /dev/zram0
+  register: swapon_result
+  changed_when: swapon_result.rc == 0
+  failed_when: false

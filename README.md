@@ -51,6 +51,16 @@ ansible-playbook ping.yml
 `ping.yml` only logs in, runs Python and prints the board model: if it shows
 every Pi, ansible can set them up.
 
+Next, `base.yml` is the frame a device playbook follows - overlay
+filesystem off, packages upgraded, watchdog and config-persistence set up,
+overlay on. It reboots the Pi, so try it on a spare one:
+
+```sh
+ansible-playbook base.yml --limit raspi-01
+```
+
+The roles are listed in [ansible/roles/](ansible/roles/README.md).
+
 ## Layout
 
 ```

@@ -1,0 +1,12 @@
+[Unit]
+Description=Load persistent configuration files from /boot/firmware/config
+After=local-fs.target
+Before=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/boot/firmware/config/load.sh --all
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

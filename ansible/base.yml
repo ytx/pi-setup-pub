@@ -1,0 +1,21 @@
+---
+# The frame every device playbook here follows: overlay off first, the
+# device's own roles in the middle, overlay on last.
+#   ansible-playbook base.yml --limit raspi-01
+# Reboots the Pi (twice if the overlay was on).
+- name: Set up the base of a device
+  hosts: all
+  become: true
+  gather_facts: true
+
+  roles:
+    - overlay-disable      # first: reboots at once if the overlay was on
+    - apt-upgrade
+    - config-persistence
+    - watchdog
+    # The roles that make this kind of device go here
+
+  post_tasks:
+    - name: Enable the overlay filesystem
+      ansible.builtin.include_role:
+        name: overlay-enable   # last: reboots

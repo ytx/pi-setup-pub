@@ -1,0 +1,9 @@
+---
+# Listed before "Reboot after overlay enable" so that, when both are notified,
+# the regenerated initramfs is in place before the reboot fires.
+- name: Update initramfs
+  ansible.builtin.command: update-initramfs -u -k all
+
+- name: Reboot after overlay enable
+  ansible.builtin.reboot:
+    reboot_timeout: 300

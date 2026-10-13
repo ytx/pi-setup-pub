@@ -1,0 +1,51 @@
+---
+- name: Install jq for JSON processing
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+    name: jq
+    state: present
+  # Right after a reboot the network may not be up yet: try again for a while.
+  register: jq_install
+  until: jq_install is succeeded
+  retries: 6
+  delay: 10
+
+- name: Create config directory on boot partition
+  ansible.builtin.file:
+    path: /boot/firmware/config
+    state: directory
+    mode: '0755'
+
+- name: Copy save.sh script
+  ansible.builtin.copy:
+    src: save.sh
+    dest: /boot/firmware/config/save.sh
+    mode: '0755'
+
+- name: Copy load.sh script
+  ansible.builtin.copy:
+    src: load.sh
+    dest: /boot/firmware/config/load.sh
+    mode: '0755'
+
+- name: Initialize files.json if not exists
+  ansible.builtin.copy:
+    content: '{"files":[]}'
+    dest: /boot/firmware/config/files.json
+    force: false
+    mode: '0644'
+
+- name: Copy config-persistence systemd service
+  ansible.builtin.copy:
+    src: config-persistence.service
+    dest: /etc/systemd/system/config-persistence.service
+    mode: '0644'
+  notify:
+    - Reload systemd
+
+- name: Enable config-persistence service
+  ansible.builtin.systemd:
+    name: config-persistence
+    enabled: true
+    daemon_reload: true

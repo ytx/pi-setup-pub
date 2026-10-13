@@ -47,6 +47,16 @@ ansible-playbook ping.yml
 `ping.yml` はログインして Python を動かし、ボードの型番を表示するだけです。全部の
 Pi が表示されれば、ansible でセットアップできます。
 
+次の `base.yml` は、機器ごとの Playbook の骨組みです（overlay ファイルシステムを
+解除し、パッケージを上げ、watchdog と config-persistence を入れ、overlay を戻す）。
+Pi をリブートするので、使っていない Pi で試してください:
+
+```sh
+ansible-playbook base.yml --limit raspi-01
+```
+
+ロールの一覧は [ansible/roles/](ansible/roles/README.md) にあります。
+
 ## 構成
 
 ```

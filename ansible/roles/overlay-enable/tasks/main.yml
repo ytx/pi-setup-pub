@@ -1,0 +1,146 @@
+---
+# Skip all tasks if overlay_enabled is false (for development)
+- name: Overlay enable tasks
+  when: overlay_enabled | default(true)
+  block:
+    # Disable swap - supports both legacy (dphys-swapfile) and modern (zram) methods
+
+    # Legacy swap (dphys-swapfile) - Bullseye and older
+    - name: Disable legacy swap (dphys-swapfile)
+      ansible.builtin.command: dphys-swapfile swapoff
+      register: dphys_result
+      failed_when: false
+      changed_when: dphys_result.rc == 0
+
+    - name: Disable legacy swap service (dphys-swapfile)
+      ansible.builtin.systemd:
+        name: dphys-swapfile
+        enabled: false
+        state: stopped
+      when: dphys_result.rc == 0
+      ignore_errors: true
+
+    - name: Remove legacy swap file
+      ansible.builtin.file:
+        path: /var/swap
+        state: absent
+      ignore_errors: true
+
+    # Modern swap (zram) - Bookworm and newer
+    - name: Disable zram swap
+      ansible.builtin.command: swapoff /dev/zram0
+      register: zram_result
+      failed_when: false
+      changed_when: zram_result.rc == 0
+
+    - name: Disable zram swap service
+      ansible.builtin.systemd:
+        name: dev-zram0.swap
+        enabled: false
+        state: stopped
+      ignore_errors: true
+
+    - name: Disable zram setup service
+      ansible.builtin.systemd:
+        name: systemd-zram-setup@zram0.service
+        enabled: false
+        state: stopped
+      ignore_errors: true
+
+    - name: Disable rpi-setup-loop swap service
+      ansible.builtin.systemd:
+        name: rpi-setup-loop@var-swap.service
+        enabled: false
+        state: stopped
+      ignore_errors: true
+
+    # On Bookworm/Trixie zram is generated each boot by systemd-zram-generator,
+    # so plain `disable` is ineffective. Mask the units to truly keep them off.
+    - name: Mask zram-related units (defeat systemd-zram-generator regeneration)
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        masked: true
+      loop:
+        - dev-zram0.swap
+        - systemd-zram-setup@zram0.service
+      failed_when: false
+
+    # The overlayroot init-bottom hook calls `modprobe -qb overlay`, which fails
+    # in BusyBox initramfs on some Pi kernels even though the module is staged.
+    # Preloading via /etc/initramfs-tools/modules makes it appear in
+    # /proc/filesystems before the hook runs, so the search succeeds.
+    - name: Preload overlay module in initramfs
+      ansible.builtin.lineinfile:
+        path: /etc/initramfs-tools/modules
+        line: overlay
+        regexp: '^overlay\s*$'
+        state: present
+      notify: Update initramfs
+
+    # Keep /etc/overlayroot.conf at the package default (`overlayroot=""`) so the
+    # init-bottom hook is driven purely by the kernel cmdline (managed by
+    # raspi-config). If conf were set to "tmpfs", overlay-disable's removal of
+    # the cmdline overlayroot= would no longer disable overlay on the next boot,
+    # making writes during deployment go to tmpfs and be lost on the final reboot.
+    - name: Reset /etc/overlayroot.conf overlayroot to empty (cmdline-only control)
+      ansible.builtin.lineinfile:
+        path: /etc/overlayroot.conf
+        regexp: '^\s*overlayroot=.*'
+        line: 'overlayroot=""'
+        state: present
+      failed_when: false
+
+    - name: Check if rsyslog.conf exists
+      ansible.builtin.stat:
+        path: /etc/rsyslog.conf
+      register: rsyslog_conf
+
+    - name: Configure rsyslog for overlayFS (limit log size)
+      ansible.builtin.lineinfile:
+        path: /etc/rsyslog.conf
+        line: "{{ item }}"
+        create: false
+      with_items:
+        - "$SystemLogRateLimitInterval 1"
+        - "$SystemLogRateLimitBurst 50"
+      when: rsyslog_conf.stat.exists
+
+    # On kernel 6.x, overlayfs rejects remounting the root ("overlay: No changes
+    # allowed in reconfigure"), so systemd-remount-fs.service fails on every
+    # overlay boot, and that failure cascades to abort NetworkManager ("Dependency
+    # failed") -> eth0 gets no IP. We must NOT mask the service though: on
+    # non-overlay boots it is exactly what remounts / from ro to rw. Instead, add
+    # a condition so it only runs when / is still read-only (i.e. a real boot that
+    # needs the remount). On overlay boots / is already rw, so the unit is cleanly
+    # skipped (condition unmet != failed), avoiding the cascade.
+    - name: Ensure systemd-remount-fs drop-in dir exists
+      ansible.builtin.file:
+        path: /etc/systemd/system/systemd-remount-fs.service.d
+        state: directory
+        mode: '0755'
+
+    - name: Skip systemd-remount-fs when / is already read-write (overlay boots)
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/systemd-remount-fs.service.d/skip-if-rw.conf
+        content: |
+          [Unit]
+          ConditionPathIsReadWrite=!/
+        mode: '0644'
+
+    - name: Enable overlay file system using raspi-config
+      ansible.builtin.command: raspi-config nonint do_overlayfs 0
+      register: overlay_result
+      changed_when: overlay_result.rc == 0
+      notify: Reboot after overlay enable
+
+    - name: Ensure boot partition is mounted rw in fstab
+      ansible.builtin.replace:
+        path: /etc/fstab
+        regexp: '^(PARTUUID=\S+\s+/boot/firmware\s+vfat\s+)defaults,ro(\s+.*)$'
+        replace: '\1defaults\2'
+
+# Reboot even when overlay is disabled (for development)
+- name: Reboot after configuration changes
+  ansible.builtin.reboot:
+    reboot_timeout: 300
+  when: not (overlay_enabled | default(true))

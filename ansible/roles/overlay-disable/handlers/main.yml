@@ -1,0 +1,4 @@
+---
+- name: Reboot after overlay disable
+  ansible.builtin.reboot:
+    reboot_timeout: 300
