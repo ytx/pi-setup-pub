@@ -1,0 +1,11 @@
+---
+# usb-patch defaults
+
+# Glob pattern for patch files on USB drive
+usb_patch_file_pattern: "update-*.tar*"
+
+# Temporary mount point for USB drive
+usb_patch_mount_point: "/mnt/usb-patch"
+
+# Seconds to wait for USB device detection at boot
+usb_patch_timeout: 10

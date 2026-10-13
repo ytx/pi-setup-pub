@@ -1,0 +1,12 @@
+---
+# udev-symlink: Create persistent symlinks for USB devices
+
+- name: Deploy udev rules for USB device symlinks
+  ansible.builtin.template:
+    src: 99-usb-symlinks.rules.j2
+    dest: /etc/udev/rules.d/99-usb-symlinks.rules
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload udev
+  when: udev_devices | length > 0

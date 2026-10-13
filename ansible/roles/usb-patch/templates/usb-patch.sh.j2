@@ -1,0 +1,86 @@
+#!/bin/bash
+# Apply patch from USB drive to overlay filesystem
+# Finds the latest update-YYYYMMDD-N.tar(.gz) and extracts to /
+
+MOUNT_POINT="{{ usb_patch_mount_point }}"
+FILE_PATTERN="{{ usb_patch_file_pattern }}"
+TIMEOUT={{ usb_patch_timeout }}
+LOG="/tmp/usb-patch.log"
+
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $*" | tee -a "$LOG"
+}
+
+# Wait for USB block device
+find_usb_device() {
+    local elapsed=0
+    while [ $elapsed -lt $TIMEOUT ]; do
+        for dev in /dev/sd[a-z][0-9]; do
+            if [ -b "$dev" ]; then
+                echo "$dev"
+                return 0
+            fi
+        done
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+    return 1
+}
+
+log "--- usb-patch start ---"
+
+dev=$(find_usb_device)
+if [ -z "$dev" ]; then
+    log "No USB device found (waited ${TIMEOUT}s). Skipping."
+    exit 0
+fi
+log "Found USB device: $dev"
+
+# Mount
+mkdir -p "$MOUNT_POINT"
+if ! mount -o ro "$dev" "$MOUNT_POINT" 2>>"$LOG"; then
+    log "Failed to mount $dev. Skipping."
+    exit 0
+fi
+
+# Find latest patch file (lexicographic sort, last = newest)
+latest=$(ls -1 "$MOUNT_POINT"/$FILE_PATTERN 2>/dev/null | sort | tail -n 1)
+
+if [ -z "$latest" ]; then
+    log "No patch files matching '$FILE_PATTERN' found. Skipping."
+    umount "$MOUNT_POINT" 2>/dev/null
+    exit 0
+fi
+
+filename=$(basename "$latest")
+log "Latest patch: $filename"
+
+# Extract to /
+# --no-overwrite-dir: never alter owner/permissions of directories that already
+# exist (/, /opt, /usr, /home, ...). Without it a stray top-level "./" entry in
+# the patch (e.g. built with `cd staging && tar cf x .` while staging is pi:pi
+# 0700) re-owns/chmods / itself at boot and locks out every non-root service
+# (dbus 200/CHDIR -> no NetworkManager -> no eth0). New files are still delivered.
+TAR_SAFE_OPTS="--no-overwrite-dir"
+case "$filename" in
+    *.tar.gz|*.tgz)
+        if tar xzf "$latest" -C / $TAR_SAFE_OPTS 2>>"$LOG"; then
+            log "Extracted to /"
+        else
+            log "ERROR: Failed to extract $filename"
+        fi
+        ;;
+    *.tar)
+        if tar xf "$latest" -C / $TAR_SAFE_OPTS 2>>"$LOG"; then
+            log "Extracted to /"
+        else
+            log "ERROR: Failed to extract $filename"
+        fi
+        ;;
+    *)
+        log "ERROR: Unknown file format: $filename"
+        ;;
+esac
+
+umount "$MOUNT_POINT" 2>/dev/null
+log "Done"

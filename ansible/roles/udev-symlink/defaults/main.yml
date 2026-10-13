@@ -1,0 +1,9 @@
+---
+# udev-symlink defaults
+
+# List of USB devices to create symlinks for
+# udev_devices:
+#   - vendor_id: "1546"
+#     product_id: "01a7"
+#     symlink: "ttyGPS"
+udev_devices: []

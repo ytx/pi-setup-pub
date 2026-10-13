@@ -1,0 +1,44 @@
+---
+# usb-patch: Apply patch from USB drive at boot
+
+- name: Deploy usb-patch script
+  ansible.builtin.template:
+    src: usb-patch.sh.j2
+    dest: /usr/local/bin/usb-patch.sh
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Deploy usb-patch systemd service
+  ansible.builtin.copy:
+    content: |
+      [Unit]
+      Description=Apply patch from USB drive
+      # Run the (potentially large) extraction only AFTER dbus and NetworkManager
+      # are up. Otherwise a big tarball saturates IO/CPU during early boot and
+      # dbus.service times out; NetworkManager (BindsTo=dbus.service) then fails
+      # and eth0 gets no IP. Still ordered before the kiosk getty so the patch is
+      # in place before the app starts.
+      After=local-fs.target systemd-udevd.service dbus.service NetworkManager.service
+      Before=getty@tty1.service
+
+      [Service]
+      Type=oneshot
+      # Be a good boot citizen: never starve dbus/systemd of CPU or disk IO.
+      Nice=19
+      IOSchedulingClass=idle
+      ExecStart=/usr/local/bin/usb-patch.sh
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/usb-patch.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload systemd
+
+- name: Enable usb-patch service
+  ansible.builtin.systemd:
+    name: usb-patch
+    enabled: true
+    daemon_reload: true

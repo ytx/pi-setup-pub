@@ -29,5 +29,7 @@ Roles are being moved here from the author's own setup a few at a time.
 | [rpi-clone](rpi-clone/README.md) | Copy the SD card to another and rename the copy (`clone-dd`, `clone-rename`, rpi-clone) |
 | [boot-splash](boot-splash/README.md) | The boot screen: no rainbow, logos or messages; your picture or a Plymouth theme |
 | [argon-fanhat](argon-fanhat/README.md) | Argon40 Fan HAT fan by CPU temperature |
+| [udev-symlink](udev-symlink/README.md) | Fixed names for USB serial devices (`/dev/ttyGPS`, ...) |
+| [usb-patch](usb-patch/README.md) | At boot, unpacks a patch from a USB stick over `/` (overlay devices) |
 
 [base.yml](../base.yml) shows how they fit together in a playbook.

@@ -1,0 +1,4 @@
+# USB device symlinks managed by Ansible (udev-symlink role)
+{% for dev in udev_devices %}
+SUBSYSTEM=="tty", ATTRS{idVendor}=="{{ dev.vendor_id }}", ATTRS{idProduct}=="{{ dev.product_id }}", SYMLINK+="{{ dev.symlink }}"
+{% endfor %}
