@@ -1,0 +1,7 @@
+---
+# Settings every host shares. Addresses are examples - use your own network's.
+ansible_user: pi
+gateway: 192.168.1.1
+dns_servers:
+  - 192.168.1.1
+  - 1.1.1.1

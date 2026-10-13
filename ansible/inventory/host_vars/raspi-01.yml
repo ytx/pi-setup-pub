@@ -1,0 +1,5 @@
+---
+# The name ansible connects to: a DNS name, name.local (mDNS) or an address
+ansible_host: raspi-01.local
+# Roles that set a fixed address read this (example range)
+static_ip: 192.168.1.51

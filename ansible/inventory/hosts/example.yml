@@ -1,0 +1,10 @@
+---
+# Groups and the hosts in them only. Variables are in
+# group_vars/<group>.yml and host_vars/<host>.yml.
+# One file per kind of device is easy to find your way around in.
+all:
+  children:
+    devboards:
+      hosts:
+        raspi-01:
+        raspi-02:

@@ -1,0 +1,7 @@
+venv/
+*.retry
+__pycache__/
+.DS_Store
+# Secrets never live in this repository - see "Secrets" in README.md
+secrets/
+*.vault.yml

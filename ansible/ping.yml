@@ -1,0 +1,20 @@
+---
+# First run: can ansible reach the Pis, log in and use sudo?
+#   ansible-playbook ping.yml
+- name: Check the connection
+  hosts: all
+  gather_facts: false
+  become: true
+
+  tasks:
+    - name: Log in and run Python
+      ansible.builtin.ping:
+
+    - name: Read the board model
+      ansible.builtin.command: cat /proc/device-tree/model
+      register: model
+      changed_when: false
+
+    - name: Show it
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: {{ model.stdout | replace('\u0000', '') }}"

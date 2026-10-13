@@ -1,0 +1,2 @@
+# The controller (the PC or Pi that runs ansible-playbook)
+ansible-core==2.20.6

@@ -1,0 +1,6 @@
+---
+# Start at "moderate"; raise to "production" once the migrated roles pass it
+profile: moderate
+exclude_paths:
+  - venv/
+  - .github/
