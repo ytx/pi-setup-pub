@@ -46,3 +46,50 @@
         marker: "# {mark} ANSIBLE MANAGED BLOCK - Static IP"
         create: true
       when: nm_status.rc != 0
+
+# A host whose static_ip was removed still carries the manual address it was
+# given. Put the connection back on DHCP; hosts that never had one (method
+# already auto) are left untouched.
+- name: Revert to DHCP
+  when: static_ip is not defined
+  block:
+    - name: Check network management system
+      ansible.builtin.command: systemctl is-active NetworkManager  # noqa: command-instead-of-module (only asks)
+      register: nm_status_revert
+      changed_when: false
+      failed_when: false
+
+    - name: Get active NetworkManager connection name
+      ansible.builtin.shell: |
+        set -o pipefail
+        nmcli -t -f NAME,DEVICE connection show --active \
+          | awk -F: -v dev='{{ network_interface }}' '$2 == dev {print $1; exit}'
+      args:
+        executable: /bin/bash
+      register: nm_connection_revert
+      changed_when: false
+      when: nm_status_revert.rc == 0
+
+    - name: Read the IPv4 method
+      ansible.builtin.command: nmcli -g ipv4.method connection show "{{ nm_connection_revert.stdout }}"
+      register: nm_ipv4_method
+      changed_when: false
+      when: nm_status_revert.rc == 0 and nm_connection_revert.stdout != ""
+
+    - name: Revert NetworkManager connection to DHCP
+      ansible.builtin.command: >-
+        nmcli connection modify "{{ nm_connection_revert.stdout }}" ipv4.method auto
+        ipv4.addresses "" ipv4.gateway "" ipv4.dns ""
+      when:
+        - nm_status_revert.rc == 0
+        - nm_connection_revert.stdout != ""
+        - nm_ipv4_method.stdout == "manual"
+      # Note: connection up is not called to avoid SSH disconnection
+      # Changes will be applied after reboot
+
+    - name: Remove static IP from dhcpcd (fallback)
+      ansible.builtin.blockinfile:
+        path: /etc/dhcpcd.conf
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - Static IP"
+        state: absent
+      when: nm_status_revert.rc != 0

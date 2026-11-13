@@ -6,8 +6,9 @@ Gives the Pi a fixed IPv4 address, with NetworkManager (current releases) or
 dhcpcd (older ones). The NetworkManager connection on the interface is found
 by itself.
 
-Nothing happens for a host without `static_ip`, so the role can be in every
-playbook and only the hosts that need it get an address.
+A host without `static_ip` is put back on DHCP if its connection is still
+set to a manual address, and left alone otherwise, so the role can be in
+every playbook and only the hosts that need it get an address.
 
 ## Variables
 
@@ -38,6 +39,8 @@ network_interface: eth0
   session running the play is not cut. The reboot at the end of
   [overlay-enable](../overlay-enable/README.md) applies it.
 - The prefix is always `/24`.
+- Removing `static_ip` from a host puts the connection back on DHCP
+  (`ipv4.method auto`) at the next reboot. Hosts that never had it are left alone.
 
 ## Tested on
 

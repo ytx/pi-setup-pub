@@ -5,8 +5,8 @@
 Pi の IPv4 アドレスを固定する。NetworkManager（今のリリース）と dhcpcd（古いリリース）の
 両方に対応。インターフェースに付いている NetworkManager の接続は自分で探す。
 
-`static_ip` の無いホストでは何もしないので、すべての Playbook に入れておき、
-必要なホストだけアドレスを固定できる。
+`static_ip` の無いホストは、接続が manual のままなら DHCP に戻し、そうでなければ
+何もしない。すべての Playbook に入れておき、必要なホストだけアドレスを固定できる。
 
 ## 変数
 
@@ -36,6 +36,8 @@ network_interface: eth0
 - 新しいアドレスはすぐではなく、次のリブートから効く（流している SSH を切らないため）。
   最後の [overlay-enable](../overlay-enable/README.ja.md) のリブートで反映される
 - プレフィックスは常に `/24`
+- ホストから `static_ip` を消すと、次のリブートから DHCP（`ipv4.method auto`）に戻る。
+  もともと無かったホストには何もしない
 
 ## 確認した環境
 
