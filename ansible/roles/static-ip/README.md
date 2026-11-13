@@ -18,6 +18,7 @@ every playbook and only the hosts that need it get an address.
 | `network_interface` | `wlan0` | the interface (`eth0` for wired) |
 | `gateway` | `""` | the router; required with `static_ip` |
 | `dns_servers` | `[]` | name servers |
+| `static_ip_revert` | `true` | without `static_ip`, put a connection that is still on a manual address back on DHCP; `false` leaves such hosts alone |
 
 `gateway` and `dns_servers` are usually the same for every host:
 
@@ -40,7 +41,9 @@ network_interface: eth0
   [overlay-enable](../overlay-enable/README.md) applies it.
 - The prefix is always `/24`.
 - Removing `static_ip` from a host puts the connection back on DHCP
-  (`ipv4.method auto`) at the next reboot. Hosts that never had it are left alone.
+  (`ipv4.method auto`) at the next reboot. A connection already on DHCP is left
+  alone; a manual address set by hand (nmtui, nmcli) is reverted too. Set
+  `static_ip_revert: false` to keep hand-set addresses.
 
 ## Tested on
 

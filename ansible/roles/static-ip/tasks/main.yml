@@ -51,7 +51,9 @@
 # given. Put the connection back on DHCP; hosts that never had one (method
 # already auto) are left untouched.
 - name: Revert to DHCP
-  when: static_ip is not defined
+  when:
+    - static_ip is not defined
+    - static_ip_revert | bool
   block:
     - name: Check network management system
       ansible.builtin.command: systemctl is-active NetworkManager  # noqa: command-instead-of-module (only asks)
@@ -87,9 +89,17 @@
       # Note: connection up is not called to avoid SSH disconnection
       # Changes will be applied after reboot
 
+    - name: Check for dhcpcd.conf (fallback)
+      ansible.builtin.stat:
+        path: /etc/dhcpcd.conf
+      register: dhcpcd_conf
+      when: nm_status_revert.rc != 0
+
     - name: Remove static IP from dhcpcd (fallback)
       ansible.builtin.blockinfile:
         path: /etc/dhcpcd.conf
         marker: "# {mark} ANSIBLE MANAGED BLOCK - Static IP"
         state: absent
-      when: nm_status_revert.rc != 0
+      when:
+        - nm_status_revert.rc != 0
+        - dhcpcd_conf.stat.exists

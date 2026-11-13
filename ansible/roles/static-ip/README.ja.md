@@ -16,6 +16,7 @@ Pi の IPv4 アドレスを固定する。NetworkManager（今のリリース）
 | `network_interface` | `wlan0` | インターフェース（有線なら `eth0`） |
 | `gateway` | `""` | ルータ。`static_ip` を使うなら必須 |
 | `dns_servers` | `[]` | ネームサーバ |
+| `static_ip_revert` | `true` | `static_ip` が無いとき、manual のままの接続を DHCP に戻す。`false` なら何もしない |
 
 `gateway` と `dns_servers` はふつう全ホストで同じ:
 
@@ -37,7 +38,8 @@ network_interface: eth0
   最後の [overlay-enable](../overlay-enable/README.ja.md) のリブートで反映される
 - プレフィックスは常に `/24`
 - ホストから `static_ip` を消すと、次のリブートから DHCP（`ipv4.method auto`）に戻る。
-  もともと無かったホストには何もしない
+  すでに DHCP の接続には何もしないが、手で（nmtui・nmcli）固定した接続も戻す。
+  手で固定したものを残すなら `static_ip_revert: false`
 
 ## 確認した環境
 
